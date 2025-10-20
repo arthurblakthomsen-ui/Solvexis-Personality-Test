@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Custom Personality Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#0b0c10; --fg:#e8e8e8; --muted:#b8b8b8; --card:#14161a; --accent:#5aa9e6; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .container { max-width:900px; margin:0 auto; padding:24px; }
+    .card { background:var(--card); border-radius:14px; padding:20px; box-shadow:0 8px 20px rgba(0,0,0,.25); }
+    h1 { margin:0 0 8px; font-size:1.8rem; }
+    .muted { color:var(--muted); }
+    fieldset { border:none; margin:20px 0; padding:0; }
+    legend { font-weight:600; margin-bottom:8px; }
+    .option { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border-radius:10px; cursor:pointer; }
+    .option:hover { background:rgba(255,255,255,.05); }
+    .controls { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+    button { background:var(--accent); color:#081018; border:none; border-radius:10px; padding:10px 16px; font-weight:600; cursor:pointer; }
+    button.secondary { background:transparent; color:var(--fg); border:1px solid rgba(255,255,255,.2); }
+    .hidden { display:none; }
+    .charts { display:grid; grid-template-columns:1fr; gap:18px; }
+    @media (min-width: 880px) { .charts { grid-template-columns:1fr 1fr; } }
+    .result-badge { background:rgba(90,169,230,.15); border:1px solid rgba(90,169,230,.35); padding:10px 12px; border-radius:10px; margin-top:10px; }
+    .footer { margin-top:24px; font-size:.9rem; color:var(--muted); }
+    .cfg { background:#0f1115; border-radius:10px; padding:12px; overflow:auto; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    a { color:#9fd3ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Custom Personality Test</h1>
+      <p class="muted">Answer the questions below. When you submit, you’ll see your profile with charts.</p>
+
+      <!-- Questionnaire -->
+      <div id="quiz">
+        <div class="controls" style="margin-bottom:8px;">
+          <label>
+            Name (optional):
+            <input id="name" type="text" style="margin-left:6px; padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,.15); background:#0f1115; color:var(--fg);" />
+          </label>
+          <label>
+            Email (optional):
+            <input id="email" type="email" style="margin-left:6px; padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,.15); background:#0f1115; color:var(--fg);" />
+          </label>
+        </div>
+
+        <div id="questions"></div>
+
+        <div class="controls">
+          <button id="submitBtn">Submit</button>
+          <button class="secondary" id="resetBtn" type="button">Reset</button>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="results" class="hidden">
+        <h2 style="margin-top:0">Your Results</h2>
+        <div id="dominant" class="result-badge"></div>
+        <p id="typeDesc" class="muted" style="margin:.4rem 0 1rem;"></p>
+
+        <div class="charts">
+          <div><canvas id="barChart" height="260"></canvas></div>
+          <div><canvas id="radarChart" height="260"></canvas></div>
+        </div>
+
+        <div class="controls">
+          <button id="retakeBtn" type="button">Retake</button>
+          <button class="secondary" id="downloadBtn" type="button">Download Scores (CSV)</button>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p><strong>Customize the test:</strong> Edit the <em>CONFIG</em> object in the code (traits, questions, weights, and type descriptions).</p>
+        <details>
+          <summary>Show current CONFIG</summary>
+          <pre class="cfg" id="cfgDump"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------------------------
+    // CONFIG: edit to fit your test
+    // ---------------------------
+    const CONFIG = {
+      title: "Custom Personality Test",
+      traits: ["Analytical", "Creative", "Organized", "Social"],
+      questions: [
+        {
+          text: "When starting a new project, what do you do first?",
+          options: [
+            { label: "Collect data and research", weights: [2, 0, 1, 0] },
+            { label: "Brainstorm bold ideas",    weights: [0, 2, 0, 1] },
+            { label: "Make a timeline/checklist",weights: [1, 0, 2, 0] },
+            { label: "Talk it through with others", weights: [0, 1, 0, 2] }
+          ]
+        },
+        {
+          text: "Your workspace tends to be...",
+          options: [
+            { label: "Covered in notes and data printouts", weights: [2, 0, 1, 0] },
+            { label: "Full of sketches and inspiration",    weights: [0, 2, 0, 1] },
+            { label: "Neat, labeled and tidy",              weights: [0, 0, 2, 1] },
+            { label: "A social hub where people drop by",   weights: [0, 1, 0, 2] }
+          ]
+        },
+        {
+          text: "Faced with a tough decision, you...",
+          options: [
+            { label: "Compare options with pros/cons and data", weights: [2, 0, 1, 0] },
+            { label: "Imagine novel solutions",                 weights: [0, 2, 0, 1] },
+            { label: "Follow a process you trust",              weights: [1, 0, 2, 0] },
+            { label: "Ask trusted people for input",            weights: [0, 1, 0, 2] }
+          ]
+        }
+      ],
+      typeDescriptions: {
+        Analytical: "You value evidence, structure and clarity in decisions.",
+        Creative:   "You thrive on ideas, novelty and experimentation.",
+        Organized:  "You like planning, reliability and follow-through.",
+        Social:     "You energize through collaboration and communication."
+      }
+    };
+
+    // ---------------------------
+    // RENDER QUESTIONS
+    // ---------------------------
+    const questionsEl = document.getElementById("questions");
+    const nameEl = document.getElementById("name");
+    const emailEl = document.getElementById("email");
+    const submitBtn = document.getElementById("submitBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const retakeBtn = document.getElementById("retakeBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const quizEl = document.getElementById("quiz");
+    const resultsEl = document.getElementById("results");
+    const dominantEl = document.getElementById("dominant");
+    const typeDescEl = document.getElementById("typeDesc");
+    const cfgDumpEl = document.getElementById("cfgDump");
+
+    cfgDumpEl.textContent = JSON.stringify(CONFIG, null, 2);
+
+    document.title = CONFIG.title;
+    document.querySelector("h1").textContent = CONFIG.title;
+
+    function renderQuestions() {
+      questionsEl.innerHTML = "";
+      CONFIG.questions.forEach((q, qi) => {
+        const fs = document.createElement("fieldset");
+        const legend = document.createElement("legend");
+        legend.textContent = `Q${qi + 1}. ${q.text}`;
+        fs.appendChild(legend);
+
+        q.options.forEach((opt, oi) => {
+          const id = `q${qi}_opt${oi}`;
+          const label = document.createElement("label");
+          label.className = "option";
+          label.htmlFor = id;
+
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = `q${qi}`;
+          radio.value = String(oi);
+          radio.id = id;
+          radio.style.marginTop = "3px";
+
+          const text = document.createElement("div");
+          text.textContent = opt.label;
+
+          label.appendChild(radio);
+          label.appendChild(text);
+          fs.appendChild(label);
+        });
+
+        questionsEl.appendChild(fs);
+      });
+    }
+    renderQuestions();
+
+    // ---------------------------
+    // SCORING
+    // ---------------------------
+    function computeScores() {
+      const scores = new Array(CONFIG.traits.length).fill(0);
+      for (let qi = 0; qi < CONFIG.questions.length; qi++) {
+        const chosen = document.querySelector(`input[name="q${qi}"]:checked`);
+        if (!chosen) return null; // not all answered
+        const optIdx = parseInt(chosen.value, 10);
+        const weights = CONFIG.questions[qi].options[optIdx].weights;
+        for (let t = 0; t < scores.length; t++) {
+          scores[t] += (weights[t] || 0);
+        }
+      }
+      return scores;
+    }
+
+    // ---------------------------
+    // CHARTS
+    // ---------------------------
+    let barChart, radarChart;
+
+    function showCharts(scores) {
+      const traitLabels = CONFIG.traits;
+      const data = {
+        labels: traitLabels,
+        datasets: [{
+          label: "Trait Score",
+          data: scores
+          // No color settings: let Chart.js default palette handle it.
+        }]
+      };
+
+      // Destroy previous charts if any (for retakes)
+      if (barChart) { barChart.destroy(); }
+      if (radarChart) { radarChart.destroy(); }
+
+      const barCtx = document.getElementById("barChart");
+      const radarCtx = document.getElementById("radarChart");
+
+      barChart = new Chart(barCtx, {
+        type: "bar",
+        data,
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: "Trait Scores (Bar)" }
+          }
+        }
+      });
+
+      radarChart = new Chart(radarCtx, {
+        type: "radar",
+        data,
+        options: {
+          responsive: true,
+          scales: { r: { beginAtZero: true, suggestedMin: 0 } },
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: "Trait Profile (Radar)" }
+          }
+        }
+      });
+    }
+
+    // ---------------------------
+    // UI HANDLERS
+    // ---------------------------
+    submitBtn.addEventListener("click", () => {
+      const scores = computeScores();
+      if (!scores) {
+        alert("Please answer all questions before submitting.");
+        return;
+      }
+
+      // Show results section
+      quizEl.classList.add("hidden");
+      resultsEl.classList.remove("hidden");
+
+      // Dominant trait + description
+      const maxVal = Math.max(...scores);
+      const maxIdx = scores.findIndex(v => v === maxVal);
+      const dominant = CONFIG.traits[maxIdx];
+      dominantEl.innerHTML = `<strong>Dominant trait:</strong> ${dominant}`;
+      typeDescEl.textContent = CONFIG.typeDescriptions[dominant] || "";
+
+      // Render charts
+      showCharts(scores);
+
+      // Stash scores for optional CSV download
+      resultsEl.dataset.scores = JSON.stringify(scores);
+    });
+
+    resetBtn.addEventListener("click", () => {
+      document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+      nameEl.value = "";
+      emailEl.value = "";
+    });
+
+    retakeBtn.addEventListener("click", () => {
+      resultsEl.classList.add("hidden");
+      quizEl.classList.remove("hidden");
+      document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    // Optional: simple CSV download (one row with submitted scores + name/email)
+    downloadBtn.addEventListener("click", () => {
+      const scores = JSON.parse(resultsEl.dataset.scores || "[]");
+      if (!scores.length) return;
+
+      const headers = ["timestamp","name","email", ...CONFIG.traits];
+      const row = [
+        new Date().toISOString(),
+        (nameEl.value || ""),
+        (emailEl.value || ""),
+        ...scores
+      ];
+
+      const csv = [headers.join(","), row.map(v => (""+v).replace(/,/g, " ")).join(",")].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "personality_scores.csv";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
